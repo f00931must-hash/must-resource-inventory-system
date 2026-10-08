@@ -1,0 +1,5 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {filterLoans,loanStatus} from './loan-filters.js';
+const rows=[{id:'a',name:'王同學',studentId:'A123',itemName:'球',category:'球類',unit:'一甲',identity:'student',remaining:1,quantity:2,dueDate:'2026-10-08',borrowedAt:'2026-10-07T16:30:00Z'},{id:'b',remaining:0,quantity:1,dueDate:'2026-10-07',borrowedAt:'2026-10-07T00:00:00Z'}];
+test('search and combined filters use Taipei borrow date inclusively',()=>{assert.deepEqual(filterLoans(rows,{search:'a123',category:'球類',unit:'一甲',identity:'student',from:'2026-10-08',to:'2026-10-08'},'2026-10-08').map(x=>x.id),['a']);assert.equal(filterLoans(rows,{from:'2026-10-09'},'2026-10-08').length,0)});
+test('partial, overdue and returned states are independent filters',()=>{assert.equal(loanStatus(rows[0],'2026-10-08'),'部分歸還');assert.equal(loanStatus(rows[0],'2026-10-09'),'逾期');assert.equal(loanStatus(rows[1],'2026-10-09'),'已歸還');assert.equal(filterLoans(rows,{status:'overdue'},'2026-10-08').length,0);assert.equal(filterLoans(rows,{status:'overdue'},'2026-10-09').length,1);assert.equal(filterLoans(rows,{status:'returned'},'2026-10-09')[0].id,'b')});
