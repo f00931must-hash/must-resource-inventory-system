@@ -1,0 +1,9 @@
+import {test} from 'node:test';import assert from 'node:assert/strict';
+import {database,encodeFields,decodeFields,allowed} from './rest.js';
+test('Firestore values preserve inventory, IDs, and partial return history',()=>{const x={id:'0001',available:2,borrowed:1,enabled:true,returns:[{quantity:1,at:'2026-10-08T08:00:00Z'}]};assert.deepEqual(decodeFields(encodeFields(x)),x)});
+test('portal disabled accounts and unassigned helpers are rejected',()=>{assert.equal(Boolean(allowed({role:'admin',enabled:false})),false);assert.equal(Boolean(allowed({role:'assistant',permissions:{}})),false);assert.equal(allowed({role:'teacher',permissions:{resourceInventory:true}}),true)});
+test('concurrent inventory changes retry before committing stock and loan atomically',async()=>{
+ const original=globalThis.fetch;let version=1,stock={available:2,borrowed:0},conflicted=false,commits=[];
+ globalThis.fetch=async(url,options)=>{if(url.endsWith(':commit')){const {writes}=JSON.parse(options.body);commits.push(writes);if(!conflicted){conflicted=true;stock={available:1,borrowed:1};version++;return Response.json({error:{status:'FAILED_PRECONDITION'}},{status:400})}assert.equal(writes[0].currentDocument.updateTime,String(version));stock={...stock,...decodeFields(writes[0].update.fields)};return Response.json({})}return Response.json({fields:encodeFields(stock),updateTime:String(version)})};
+ try{const db=database({FIREBASE_PROJECT_ID:'test'},'token');await db.runTransaction(async tx=>{const ref=db.doc('items/1'),s=await tx.get(ref);tx.update(ref,{available:s.data().available-1,borrowed:s.data().borrowed+1});tx.create(db.doc('loans/new'),{quantity:1})});assert.deepEqual(stock,{available:0,borrowed:2});assert.equal(commits.length,2);assert.deepEqual(commits[1][1].currentDocument,{exists:false});assert.equal(commits[1].length,2)}finally{globalThis.fetch=original}
+});
