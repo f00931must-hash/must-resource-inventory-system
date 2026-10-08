@@ -2,3 +2,6 @@
 :where(.row)>label{grid-column:1/-1;margin-bottom:0}
 
 .row{display:block}
+
+
+.filter-grid,.qr-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px}.filter-grid label{margin:0}.filter-grid input,.filter-grid select{margin-top:8px}.category-tags{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.category-tags span{background:#edf5fa;padding:8px 12px;border-radius:20px}.danger{background:#a72d35}.pagination{display:flex;align-items:center;justify-content:center;gap:16px;margin-top:18px}.qr-card{text-align:center}.qr-card canvas{width:min(100%,300px);height:auto;image-rendering:pixelated}.qr-url{overflow-wrap:anywhere;font-size:13px}.meta .quiet{margin:10px 0 0 12px}@media(max-width:640px){.filter-grid,.qr-grid{grid-template-columns:1fr}.pagination{gap:8px}.pagination button{padding:10px}.meta .quiet{margin-left:0;display:block}}
