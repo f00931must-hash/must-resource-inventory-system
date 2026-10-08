@@ -1,0 +1,1 @@
+{"name":"must-resource-inventory-system","private":true,"type":"module","scripts":{"test":"node --test functions/domain.test.js"}}

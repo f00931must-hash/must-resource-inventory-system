@@ -1,0 +1,7 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 全部透過後端驗證及交易處理，禁止用戶端直接讀寫借用個資與庫存。
+    match /{document=**} { allow read, write: if false; }
+  }
+}

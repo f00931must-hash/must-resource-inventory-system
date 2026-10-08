@@ -1,0 +1,4 @@
+export function positive(value){const n=Number(value);if(!Number.isSafeInteger(n)||n<=0)throw new Error('數量必須是正整數');return n}
+export function borrowStock(item,quantity){const n=positive(quantity);if(item.enabled===false||n>item.available)throw new Error('可借數量不足');return {available:item.available-n,borrowed:item.borrowed+n}}
+export function returnStock(item,loan,quantity){const n=positive(quantity);if(n>loan.remaining||n>item.borrowed)throw new Error('歸還數量超過尚未歸還數量');return {available:item.available+n,borrowed:item.borrowed-n,remaining:loan.remaining-n}}
+export function validateItem(row){for(const key of ['id','name','category'])if(!String(row[key]||'').trim())throw new Error('物品編號、名稱與分類不可空白');for(const key of ['total','borrowed','available'])if(!Number.isSafeInteger(row[key])||row[key]<0)throw new Error('庫存數量不可為負數或小數');if(row.total!==row.borrowed+row.available)throw new Error('原始庫存不等於借出加目前庫存');return row}
