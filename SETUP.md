@@ -1,26 +1,21 @@
-# 資教物資管理系統第一版
+# 資教物資管理系統（Workers 1.1.0）
 
-## 已實作
-手機借用表單、學號與手機查詢未歸還物品、分批歸還、借還時間自動記錄、管理者 Google 登入、庫存新增、搜尋、Excel 匯入預覽與異常阻擋、物品與借還紀錄 Excel 匯出。庫存異动使用後端 Firestore transaction，避免同時借用超借；重複操作以 requestId 防止重送。學生不用建立帳號。
+網站由 GitHub Pages 發布，後端使用 Cloudflare Workers 與獨立 Firebase Firestore。管理者使用入口的 Google 登入與 portalUsers 權限；學生不用帳號。functions 資料夾保留舊版本程式，現在不部署 Firebase Functions。
 
-文宣品頁目前為待確認區，尚未實作領用流程。QR 列印也尚未實作；借用頁已支援 `?item=資產編號` 預選物品。
+## 部署更新
+在 Cloudflare 的 must-resource-inventory-api Worker，Edit code 貼上 worker/worker.js 全文並 Deploy。保留既有 FIREBASE_PROJECT_ID、FIREBASE_SERVICE_ACCOUNT Secret、PORTAL_FIREBASE_PROJECT_ID。/health 的 version 應為 workers-1.1.0。GitHub Pages 由 main 根目錄發布。
 
-## 正式啟用前需完成
-1. 建立新 Firebase 專案及 Firestore，不共用其他系統的資料庫。
-2. 啟用 Authentication 的 Google 登入，授權網域加入 `f00931must-hash.github.io`。
-3. 在新專案的 `authorizedUsers` collection 建立以管理者 email（小寫）為 ID 的文件：`enabled: true`、`name: 管理者姓名`。此版只有被開通的管理者能使用後台，尚未設定老師／小幫手各自的物品分組。
-4. `config.js` 填入新專案的 Web Firebase config。後端部署完成後，`apiBase` 填入 `inventoryApi` 的 HTTPS URL。
-5. 在具備該專案授權的環境執行 `cd functions && npm install`，再由根目錄執行 `firebase deploy --project 新專案ID --only functions,firestore:rules`。Cloud Functions 部署需要可使用此功能的 Firebase 計費方案；先確認後再部署。
-6. GitHub Pages 設定以 `main` 的根目錄發布。設定未完成時畫面會清楚顯示尚未開放，不會假裝存檔成功。
-7. 使用測試物品驗證兩部手機同時借用、分批歸還、重新整理後紀錄持續存在，再匯入正式物品。
+## 目前功能
+手機借還、部分歸還、時間自動記錄、Excel 匯入匯出、物品大類預先建立及選取、五位數自動編號（00001–99999）、物品刪除、借還紀錄搜尋篩選分頁及篩選匯出、學生借用與歸還 QR 圖片下載。
 
-## 資料匯入
-使用原 Ragic 匯出欄位：資產編號、財產編號、物品大類、物品名稱、原始庫存數量、目前借出數量、目前庫存數量、庫存狀態、存放位置、備註。資產編號以文字保留前導零。數量需為非負整數，原始庫存需等於借出加目前庫存；重複編號及既有物品會阻擋，絕不覆蓋既有庫存。每批 100 筆分段儲存，連線中斷可能已新增部分批次，需先匯出核對再匯入剩餘資料。
+刪除保留原物品文件與借還紀錄，編號不回收；有未歸還數量時禁止刪除。管理員的測試重設只重設計數器，仍跳過曾使用編號，避免舊紀錄對到不同物品。新增物品支援 requestId 防止網路重送重複新增。編號達 99999 時停止新增。
 
-舊表的已借出數量可以保留，但沒有借用人明細；不能憑空產生可歸還的借用紀錄，需另外補入舊借用紀錄後才能由學生歸還這些舊借出項目。
+物品大類共用；老師管理自己的物品，小幫手依入口設定的老師權限管理。學生 QR 連結分別為網站 ?page=borrow 與 ?page=return。QR 使用本地 qrcode.js（Kazuhiko Arase，MIT）產生。
 
-## 測試
-根目錄 `npm test`。本地測試涵蓋庫存守恆、超借超還及異常匯入。尚未完成正式 Firebase 連線或跨手機驗證。
+## 匯入
+沿用 Ragic 欄位：資產編號、財產編號、物品大類、物品名稱、原始庫存數量、目前借出數量、目前庫存數量、存放位置、備註。保留前導零；數量須為非負整數，原始庫存等於借出加目前庫存。既有編號（含已刪除）禁止覆蓋。每批 100 筆，斷線後請先核對已匯入部分。
 
-## 後續確認
-文宣品欄位、入庫與領用人員、老師與小幫手的後台分組權限、QR 貼紙版面。正式開放前補上公共 API 的限流與 App Check；目前學生查詢以學號與手機配對，沒有帳號驗證，必須評估中心可接受的查詢方式。
+舊借出數量沒有借用人明細時，不能自動產生學生可歸還的紀錄。文宣品領用流程仍待確認。
+
+## 驗證
+npm test 涵蓋庫存守恆、超借超還、交易衝突重試、權限、編號上限、重送、刪除與重設保留紀錄、匯入計數器及台灣日期篩選。更新部署後請用測試物品驗證實際借還與手機掃描。
