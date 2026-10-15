@@ -1,9 +1,9 @@
-# 資教物資管理系統（Workers 1.1.2）
+# 資教物資管理系統（Workers 1.1.4）
 
 網站由 GitHub Pages 發布，後端使用 Cloudflare Workers 與獨立 Firebase Firestore。管理者使用入口的 Google 登入與 portalUsers 權限；學生不用帳號。functions 資料夾保留舊版本程式，現在不部署 Firebase Functions。
 
 ## 部署更新
-在 Cloudflare 的 must-resource-inventory-api Worker，Edit code 貼上 worker/worker.js 全文並 Deploy。保留既有 FIREBASE_PROJECT_ID、FIREBASE_SERVICE_ACCOUNT Secret、PORTAL_FIREBASE_PROJECT_ID。/health 的 version 應為 workers-1.1.2。GitHub Pages 由 main 根目錄發布。
+在 Cloudflare 的 must-resource-inventory-api Worker，Edit code 貼上 worker/worker.js 全文並 Deploy。保留既有 FIREBASE_PROJECT_ID、FIREBASE_SERVICE_ACCOUNT Secret、PORTAL_FIREBASE_PROJECT_ID。/health 的 version 應為 workers-1.1.4。GitHub Pages 由 main 根目錄發布。
 
 ## 目前功能
 手機借還、部分歸還、時間自動記錄、Excel 匯入匯出、物品大類預先建立及選取、五位數自動編號（00001–99999）、物品刪除、借還紀錄搜尋篩選分頁及篩選匯出、學生借用與歸還 QR 圖片下載。
@@ -22,3 +22,6 @@ npm test 涵蓋庫存守恆、超借超還、交易衝突重試、權限、編�
 
 ## 其他未建檔物品
 學生借用大類固定提供「其他」，選取後手動填寫必填物品名稱（最多 200 字），不用選擇庫存物品。後端記錄 category=其他、inventoryTracked=false 與名稱、數量、借還時間，支援原查詢與部分歸還；不建立庫存、不占資產編號、不增減既有庫存。此類紀錄由入口管理員在後台查看（無所屬老師）。其他大類仍依既有庫存借還。
+
+## 修改庫存
+庫存清單提供「修改庫存」，輸入不含已借出的實際可借數量。總庫存自動等於可借加已借出，已借出及所有借還紀錄保留。後端檢查所屬老師權限、原始庫存是否過期，並將修改前後數量與操作人、時間寫入 stockAdjustments。匯入仍僅新增，不會覆蓋或累加同編號庫存。
