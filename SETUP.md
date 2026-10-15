@@ -1,14 +1,14 @@
-# 資教物資管理系統（Workers 1.1.0）
+# 資教物資管理系統（Workers 1.1.1）
 
 網站由 GitHub Pages 發布，後端使用 Cloudflare Workers 與獨立 Firebase Firestore。管理者使用入口的 Google 登入與 portalUsers 權限；學生不用帳號。functions 資料夾保留舊版本程式，現在不部署 Firebase Functions。
 
 ## 部署更新
-在 Cloudflare 的 must-resource-inventory-api Worker，Edit code 貼上 worker/worker.js 全文並 Deploy。保留既有 FIREBASE_PROJECT_ID、FIREBASE_SERVICE_ACCOUNT Secret、PORTAL_FIREBASE_PROJECT_ID。/health 的 version 應為 workers-1.1.0。GitHub Pages 由 main 根目錄發布。
+在 Cloudflare 的 must-resource-inventory-api Worker，Edit code 貼上 worker/worker.js 全文並 Deploy。保留既有 FIREBASE_PROJECT_ID、FIREBASE_SERVICE_ACCOUNT Secret、PORTAL_FIREBASE_PROJECT_ID。/health 的 version 應為 workers-1.1.1。GitHub Pages 由 main 根目錄發布。
 
 ## 目前功能
 手機借還、部分歸還、時間自動記錄、Excel 匯入匯出、物品大類預先建立及選取、五位數自動編號（00001–99999）、物品刪除、借還紀錄搜尋篩選分頁及篩選匯出、學生借用與歸還 QR 圖片下載。
 
-刪除保留原物品文件與借還紀錄，編號不回收；有未歸還數量時禁止刪除。管理員的測試重設只重設計數器，仍跳過曾使用編號，避免舊紀錄對到不同物品。新增物品支援 requestId 防止網路重送重複新增。編號達 99999 時停止新增。
+刪除保留原物品文件與借還紀錄，編號不回收；有未歸還數量時禁止刪除。管理員的測試重設需先刪除目前所有物品且完成歸還；系統將已刪除物品封存至 archivedItems，保留借還紀錄，下一個編號重新從 00001 開始。一般刪除不回收編號。物品大類旁的 × 可刪除未被目前物品使用的大類，日後可重新建立。新增物品支援 requestId 防止網路重送重複新增。編號達 99999 時停止新增。
 
 物品大類共用；老師管理自己的物品，小幫手依入口設定的老師權限管理。學生 QR 連結分別為網站 ?page=borrow 與 ?page=return。QR 使用本地 qrcode.js（Kazuhiko Arase，MIT）產生。
 
