@@ -16,7 +16,7 @@ function encodeValue(x){if(x===null)return {nullValue:null};if(typeof x==='boole
 const encodeFields=x=>Object.fromEntries(Object.entries(x).map(([k,v])=>[k,encodeValue(v)]));
 function decodeValue(x){if('nullValue'in x)return null;if('integerValue'in x)return Number(x.integerValue);if('doubleValue'in x)return x.doubleValue;if('booleanValue'in x)return x.booleanValue;if('arrayValue'in x)return (x.arrayValue.values||[]).map(decodeValue);if('mapValue'in x)return decodeFields(x.mapValue.fields||{});return x.stringValue??x.timestampValue??''}
 const decodeFields=x=>Object.fromEntries(Object.entries(x||{}).map(([k,v])=>[k,decodeValue(v)]));
-async function rest(url,token,body){const r=await fetch(url,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok){const e=Error('資料庫操作失敗：'+(d.error?.status||r.status));e.code=d.error?.status;e.status=r.status;throw e}return d}
+async function rest(url,token,body){const r=await fetch(url,{method:body?'POST':'GET',headers:{Authorization:'Bearer '+token,...(body?{'Content-Type':'application/json'}:{})},...(body?{body:JSON.stringify(body)}:{})});const d=await r.json();if(!r.ok){const detail=Array.isArray(d)?d.find(x=>x.error)?.error:d.error;const limited=r.status===429||detail?.status==='RESOURCE_EXHAUSTED';const e=Error(limited?'資料庫暫時忙碌或讀取額度已達上限，請稍後再試':'資料庫操作失敗：'+(detail?.status||r.status));e.code=detail?.status;e.status=r.status;throw e}return d}
 function database(env,token){
   const root=`projects/${env.FIREBASE_PROJECT_ID}/databases/(default)/documents`,base='https://firestore.googleapis.com/v1/'+root;
   const snapshot=(ref,d)=>({id:ref.id,exists:Boolean(d),ref,version:d?.updateTime,data:()=>decodeFields(d?.fields)});
@@ -67,6 +67,8 @@ if(route==='return'){const c=credential(b),quantity=positive(b.quantity),loan=db
 return res.status(404).json({error:'找不到功能'});
 }catch(e){res.status(400).json({error:e.message||'操作失敗'})}}
 
+function createCatalogCache(ttl=30000,clock=Date.now){const entries=new Map();return {invalidate:key=>entries.delete(key),get:async(key,loader)=>{const old=entries.get(key);if(old?.value&&old.expires>clock())return old.value;if(old?.pending)return old.pending;const entry={};entries.set(key,entry);entry.pending=Promise.resolve().then(loader).then(value=>{if(value.status===200){entry.value=value;entry.expires=clock()+ttl}return value}).finally(()=>{delete entry.pending;if(!entry.value&&entries.get(key)===entry)entries.delete(key)});return entry.pending}}}
+const catalogCache=createCatalogCache();
 export default {async fetch(request,env){
  const origin=request.headers.get('Origin'),headers={'Content-Type':'application/json; charset=utf-8','Cache-Control':'no-store','Vary':'Origin'};
  if(origin&&origin!=='https://f00931must-hash.github.io')return new Response(JSON.stringify({error:'來源未允許'}),{status:403,headers});
@@ -74,15 +76,15 @@ export default {async fetch(request,env){
  headers['Access-Control-Allow-Headers']='Content-Type, Authorization';headers['Access-Control-Allow-Methods']='GET, POST, OPTIONS';
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers});
  const route=new URL(request.url).pathname;
- if(route==='/health')return new Response(JSON.stringify({ok:true,version:'workers-1.1.6',configured:Boolean(env.FIREBASE_PROJECT_ID&&env.FIREBASE_SERVICE_ACCOUNT&&env.PORTAL_FIREBASE_PROJECT_ID)}),{headers});
+ if(route==='/health')return new Response(JSON.stringify({ok:true,version:'workers-1.1.7',configured:Boolean(env.FIREBASE_PROJECT_ID&&env.FIREBASE_SERVICE_ACCOUNT&&env.PORTAL_FIREBASE_PROJECT_ID)}),{headers});
  let status=200,result;const res={status(n){status=n;return this},json(d){result=d;return this}};
  try{if(request.method==='POST'&&Number(request.headers.get('Content-Length')||0)>250000)throw Error('檔案資料太大');const raw=request.method==='POST'?await request.text():'';if(raw.length>250000)throw Error('檔案資料太大');const body=raw?JSON.parse(raw):{};
- const db=database(env,await accessToken(env));await handler({path:route,method:request.method,body},res,db,()=>portalManager(request,env));
+ const key=env.FIREBASE_PROJECT_ID;const execute=async()=>{const db=database(env,await accessToken(env));await handler({path:route,method:request.method,body},res,db,()=>portalManager(request,env));return {status,result}};if(request.method==='GET'&&route==='/items'){const output=await catalogCache.get(key,execute);status=output.status;result=output.result}else{if(request.method==='POST')catalogCache.invalidate(key);try{await execute()}finally{if(request.method==='POST')catalogCache.invalidate(key)}}
  }catch(e){status=400;result={error:e.message||'操作失敗'}}return new Response(JSON.stringify(result),{status,headers});
 }};
 
 
 function maxAssetNumber(ids){return Math.max(0,...ids.filter(x=>/^\d{1,5}$/.test(x)).map(Number))}
 function nextAssetNumber(last,ids,required=true){const used=new Set(ids.map(x=>/^\d{1,5}$/.test(x)?String(Number(x)).padStart(5,'0'):x));let n=last+1;while(n<=99999&&used.has(String(n).padStart(5,'0')))n++;if(n>99999){if(required)throw Error('資產編號已達 99999');return null}return String(n).padStart(5,'0')}
-export {handler,nextAssetNumber};
+export {handler,nextAssetNumber,createCatalogCache};
 
