@@ -1,9 +1,9 @@
-# 資教物資管理系統（Workers 1.1.5）
+# 資教物資管理系統（Workers 1.2.0）
 
 網站由 GitHub Pages 發布，後端使用 Cloudflare Workers 與獨立 Firebase Firestore。管理者使用入口的 Google 登入與 portalUsers 權限；學生不用帳號。functions 資料夾保留舊版本程式，現在不部署 Firebase Functions。
 
 ## 部署更新
-在 Cloudflare 的 must-resource-inventory-api Worker，Edit code 貼上 worker/worker.js 全文並 Deploy。保留既有 FIREBASE_PROJECT_ID、FIREBASE_SERVICE_ACCOUNT Secret、PORTAL_FIREBASE_PROJECT_ID。/health 的 version 應為 workers-1.1.5。GitHub Pages 由 main 根目錄發布。
+在 Cloudflare 的 must-resource-inventory-api Worker，Edit code 貼上 worker/worker.js 全文並 Deploy。保留既有 FIREBASE_PROJECT_ID、FIREBASE_SERVICE_ACCOUNT Secret、PORTAL_FIREBASE_PROJECT_ID。/health 的 version 應為 workers-1.2.0。GitHub Pages 由 main 根目錄發布。
 
 ## 目前功能
 手機借還、部分歸還、時間自動記錄、Excel 匯入匯出、物品大類預先建立及選取、五位數自動編號（00001–99999）、物品刪除、借還紀錄搜尋篩選分頁及篩選匯出、學生借用與歸還 QR 圖片下載。
@@ -25,3 +25,13 @@ npm test 涵蓋庫存守恆、超借超還、交易衝突重試、權限、編�
 
 ## 修改庫存
 庫存清單提供「修改庫存」，依序輸入實際總庫存（含借出）與實際借出數量；剩餘可借自動等於總庫存減借出。例如匯入錯誤的 1／1／0 可修正為 1／0／1，不增加總庫存。借出不可低於此物品目前學生借用紀錄的未歸還數量加總，既有借還紀錄不變。後端檢查所屬老師權限與原始庫存是否過期，並將修改前後數量與操作人、時間寫入 stockAdjustments。匯入仍僅新增，不覆蓋或累加同編號庫存。
+
+## Workers 1.2.0：降低讀取量
+清單改讀取 settings/catalogIndex 與 catalogChunks。現有原始 items 文件與 loans 不刪除、不重匯。第一次成功讀取會自動建立目錄，這次需要掃描原始物品；之後學生清單與管理庫存只讀少量目錄文件。以編號 00001–01088 的測試資料驗證：1088 筆物品分成 11 份目錄，後續完整載入讀取 12 份文件。這是測試中的文件讀取數，不含首次建置及其他權限、設定、紀錄操作。
+
+所有經此 Worker 修改的物品（借還、匯入、新增、庫存校正、備註、刪除）會在同一次原子 commit 中更新目錄與索引；同時借用的衝突會重試。老師與小幫手仍按原物品建立者篩選，學生回應不含建立者或管理端庫存欄位。新增物品、管理設定與一般匯入不再反覆讀取整份 items；測試重設編號是使用者明確觸發的例外，仍需檢查所有原始物品與未歸還紀錄。
+
+現有 30 秒記憶體快取保留；此版新增的資料庫目錄不依賴快取存活，也不是縮短查詢間隔的暫時補丁。大型清單以批次讀取目錄，避免每份目錄各發一個 HTTP 請求。
+請勿在 Firebase 主控台直接修改 items：直接修改不會經過 Worker 的同步邏輯。如有此需求，需先提供安全的目錄重建操作。
+
+部署：Cloudflare must-resource-inventory-api → Edit code → 貼上 worker/worker.js → Deploy。health 顯示 workers-1.2.0。若 Firebase 當前額度已耗盡，程式無法補回額度；首次建置與真實借還必須待資料庫允許讀取後實測。不可將本地模擬測試宣稱為現場服務已恢復。
