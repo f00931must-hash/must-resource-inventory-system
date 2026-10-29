@@ -1,4 +1,4 @@
-import {renderPurchases} from './purchases.js?v=1.2.1';
+import {renderPurchases} from './purchases.js?v=1.2.2';
 import {filterLoans,loanStatus} from './loan-filters.js';
 import {firebaseConfig,portalFirebaseConfig,apiBase} from './config.js';
 const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
