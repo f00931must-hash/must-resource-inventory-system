@@ -1,4 +1,4 @@
-import {renderPurchases} from './purchases.js?v=1.2.0';
+import {renderPurchases} from './purchases.js?v=1.2.1';
 import {filterLoans,loanStatus} from './loan-filters.js';
 import {firebaseConfig,portalFirebaseConfig,apiBase} from './config.js';
 const $=id=>document.getElementById(id),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -50,4 +50,5 @@ async function previewImport(e){try{if(!window.XLSX)throw Error('Excel 功能尚
 document.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>navigate(b.dataset.page));$('adminButton').onclick=()=>navigate('admin');
 const requestedPage=new URLSearchParams(location.search).get('page');let initialPage=requestedPage==='return'?'return':requestedPage==='borrow'?'borrow':savedPage();if(!['borrow','return','admin'].includes(initialPage))initialPage='borrow';
 if(!ready)$('connection').innerHTML='<div class="banner">系統尚未完成資料庫設定，借還與管理功能暫未開放。</div>';else{try{await restoreLogin()}catch(e){notice('無法還原登入，仍可使用學生借還功能')}try{await loadItems()}catch(e){$('connection').innerHTML=`<div class="banner">${esc(e.message)}</div>`}}if(initialPage==='admin'&&!user)initialPage='borrow';navigate(initialPage);
+
 
