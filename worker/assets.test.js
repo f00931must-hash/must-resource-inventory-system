@@ -23,17 +23,27 @@ test('failed catalog renders retry instead of misleading Other-only form',async(
 
 test('refresh restores Firebase user after auth initialization without opening a sign-in popup',async()=>{const {readFile}=await import('node:fs/promises'),{runInNewContext}=await import('node:vm');const source=await readFile(new URL('../app.js',import.meta.url),'utf8');let started=false,stopped=0;const account={email:'teacher@test'},context={user:null,auth:{},initializeAuth:async()=>{started=true},sdk:{onAuthStateChanged(auth,fn){assert.equal(started,true);queueMicrotask(()=>fn(account));return()=>stopped++}}};const restore=runInNewContext(source.slice(source.indexOf('async function restoreLogin()'),source.indexOf('async function login()'))+';restoreLogin;',context);assert.equal((await restore()).email,'teacher@test');assert.equal(context.user.email,'teacher@test');assert.equal(stopped,1)});
 
-test('assistants see all catalog stock while foreign items remain read-only',async()=>{
+test('assistants see all stock and may edit foreign items with stock safety checks',async()=>{
  const rows=[{id:'00001',name:'老師甲物品',category:'書籍',total:3,borrowed:1,available:2,createdBy:'teacher@test'},{id:'00002',name:'其他老師物品',category:'3C',total:1,borrowed:1,available:0,enabled:false,createdBy:'other@test'},{id:'00003',name:'匯入物品',category:'書籍',total:2,borrowed:0,available:2}];
  const db=memory({'settings/catalogIndex':{ready:true,chunkIds:['test']},'catalogChunks/test':{json:JSON.stringify(rows)},...Object.fromEntries(rows.map(x=>['items/'+x.id,x]))});
  const before=structuredClone([...db.data]);
  const read=async user=>{let result,status=200;await handler({path:'/adminItems',method:'GET'},{status(n){status=n;return this},json(v){result=v}},db,async()=>user);return {status,result}};
  const assistant={role:'assistant',email:'helper@test',ownerEmail:'teacher@test'};
- const helper=await read(assistant);assert.equal(helper.status,200);assert.deepEqual(helper.result.map(x=>x.id),['00001','00002','00003']);assert.deepEqual(helper.result.map(x=>x.canManage),[true,false,false]);assert.equal(helper.result[1].borrowed,1);assert.equal(helper.result[1].enabled,false);
+ const helper=await read(assistant);assert.equal(helper.status,200);assert.deepEqual(helper.result.map(x=>x.id),['00001','00002','00003']);assert.deepEqual(helper.result.map(x=>x.canManage),[true,true,true]);assert.equal(helper.result[1].borrowed,1);assert.equal(helper.result[1].enabled,false);
  assert.deepEqual((await read({role:'teacher',ownerEmail:'teacher@test'})).result.map(x=>x.id),['00001']);assert.equal((await read(admin)).result.every(x=>x.canManage),true);
- assert.equal((await call(db,'editItemNote',{id:'00002',note:'越權',expectedNote:''},assistant)).status,400);
- assert.equal((await call(db,'adjustStock',{id:'00002',total:1,borrowed:0,expected:{total:1,borrowed:1,available:0},requestId:'forbidden'},assistant)).status,400);
- assert.equal((await call(db,'deleteItem',{id:'00003'},assistant)).status,400);
  assert.deepEqual([...db.data],before);
+ assert.equal((await call(db,'editItemNote',{id:'00002',note:'協助同學修改',expectedNote:''},assistant)).ok,true);
+ assert.equal(db.data.get('items/00002').updatedBy,'helper@test');
+ const adjust={id:'00002',total:1,borrowed:0,expected:{total:1,borrowed:1,available:0},requestId:'adjust'};
+ db.data.set('loans/open',{itemId:'00002',remaining:1});
+ assert.equal((await call(db,'adjustStock',adjust,assistant)).status,400);
+ assert.equal((await call(db,'deleteItem',{id:'00002'},assistant)).status,400);
+ db.data.set('loans/open',{itemId:'00002',remaining:0});
+ assert.equal((await call(db,'adjustStock',adjust,assistant)).ok,true);
+ assert.equal(db.data.get('items/00002').available,1);
+ assert.equal((await call(db,'adjustStock',{...adjust,requestId:'stale'},assistant)).status,400);
+ assert.equal((await call(db,'deleteItem',{id:'00003'},assistant)).ok,true);
+ assert.equal(db.data.get('items/00003').deletedBy,'helper@test');
+ assert.equal(db.data.has('loans/open'),true);
  let rejected=false;await handler({path:'/adminItems',method:'GET'},{status(){return this},json(v){rejected=!!v.error}},db,async()=>{throw Error('請先登入')});assert.equal(rejected,true);
 });
